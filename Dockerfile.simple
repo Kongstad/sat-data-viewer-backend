@@ -1,0 +1,50 @@
+# Multi-stage build for Lambda with GDAL
+# Stage 1: Build GDAL and rasterio
+FROM public.ecr.aws/lambda/python:3.12 as builder
+
+# Install build dependencies
+RUN dnf install -y \
+    gcc gcc-c++ make cmake \
+    curl wget tar gzip bzip2 \
+    sqlite-devel proj-devel
+
+# Build and install GDAL 3.8
+RUN cd /tmp && \
+    wget https://github.com/OSGeo/gdal/releases/download/v3.8.4/gdal-3.8.4.tar.gz && \
+    tar xzf gdal-3.8.4.tar.gz && \
+    cd gdal-3.8.4 && \
+    mkdir build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/opt/gdal && \
+    make -j4 && \
+    make install
+
+# Install Python packages into /opt/python
+RUN mkdir -p /opt/python
+ENV GDAL_CONFIG=/opt/gdal/bin/gdal-config
+COPY requirements.txt /tmp/
+RUN pip install --target /opt/python \
+    GDAL==3.8.4 \
+    rasterio==1.4.3 \
+    numpy==1.26.0
+
+# Stage 2: Runtime
+FROM public.ecr.aws/lambda/python:3.12
+
+# Copy GDAL from builder
+COPY --from=builder /opt/gdal /opt/gdal
+COPY --from=builder /opt/python /opt/python
+
+# Set environment
+ENV LD_LIBRARY_PATH=/opt/gdal/lib:$LD_LIBRARY_PATH
+ENV PATH=/opt/gdal/bin:$PATH
+ENV PYTHONPATH=/opt/python:$PYTHONPATH
+
+# Install remaining dependencies
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+# Copy application code
+COPY app/ ${LAMBDA_TASK_ROOT}/app/
+
+# Set handler
+CMD [ "app.main.handler" ]

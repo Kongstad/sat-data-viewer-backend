@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # CORS
     allowed_origins: str = "*"
     
+    # Turnstile (Cloudflare CAPTCHA)
+    turnstile_secret_key: str = ""
+    
     # File limits
     max_file_size_mb: int = 1500  # 1.5 GB max
     

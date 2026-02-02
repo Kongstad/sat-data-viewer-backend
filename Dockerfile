@@ -1,14 +1,13 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-# Install system dependencies for rasterio
+# Install system libraries that rasterio wheels depend on
 RUN dnf install -y \
-    gcc \
-    gcc-c++ \
-    gdal \
-    gdal-devel \
+    expat \
+    sqlite \
+    proj \
     && dnf clean all
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install Python dependencies (using pre-built wheels)
 COPY requirements.txt ${LAMBDA_TASK_ROOT}/
 RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 

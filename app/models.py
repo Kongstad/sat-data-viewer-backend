@@ -51,6 +51,10 @@ class DownloadRequest(BaseModel):
         description="Colormap name for PNG visualization (e.g., 'viridis', 'inferno')",
         examples=["viridis", "inferno", "rdylgn"]
     )
+    turnstile_token: Optional[str] = Field(
+        None,
+        description="Cloudflare Turnstile token for bot protection"
+    )
 
 
 class DownloadResponse(BaseModel):

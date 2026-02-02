@@ -18,6 +18,7 @@ from app.conversion import geotiff_to_png, ConversionError
 from app.collections import get_all_collections, COLLECTION_ASSETS, is_collection_disabled
 from app.utils import get_content_type, generate_filename, format_file_size
 from app.middleware import tracker
+from app.turnstile import verify_turnstile_token
 
 
 router = APIRouter()
@@ -102,6 +103,11 @@ async def download(request: DownloadRequest, http_request: Request):
     if request.colormap:
         logger.info(f"[REQUEST] Colormap: {request.colormap}")
     logger.info(f"{'='*60}")
+    
+    # Verify Turnstile token (bot protection)
+    if not await verify_turnstile_token(request.turnstile_token, client_ip):
+        logger.warning(f"[REJECTED] Turnstile verification failed for {client_ip}")
+        raise HTTPException(status_code=403, detail="Security verification failed. Please refresh and try again.")
     
     # Check if collection is disabled
     disabled, reason = is_collection_disabled(request.collection)
