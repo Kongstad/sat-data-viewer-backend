@@ -1,16 +1,25 @@
 # Satellite Data Viewer Backend
 
-A FastAPI backend for downloading satellite imagery from Microsoft Planetary Computer, deployed on AWS Lambda.
+FastAPI service for downloading satellite imagery from Microsoft Planetary Computer. Deployed serverless on AWS Lambda with Docker.
+
+## Quick Start
+
+```bash
+# Local development
+uv sync --link-mode=copy
+uv run python run_local.py
+
+# Visit http://localhost:8000/docs for API documentation
+```
 
 ## Features
 
-- Download satellite tiles as GeoTIFF or PNG
-- Support for Sentinel-2, Landsat, Sentinel-1 SAR, HLS, MODIS, and Copernicus DEM
-- Microsoft Planetary Computer STAC API integration
-- Cloudflare Turnstile bot protection
-- Rate limiting (1 request/minute per IP)
-- Download quotas (5000 MB/hour)
-- AWS Lambda deployment (up to 1.5GB temporary storage)
+- 🛰️ Download satellite tiles as GeoTIFF or PNG
+- 🌍 Support for Sentinel-2, Landsat, HLS, MODIS, DEM
+- 🔒 Cloudflare Turnstile bot protection
+- ⏱️ Rate limiting (1 req/min per IP)
+- 📊 Download quotas (5 GB/hour)
+- ☁️ AWS Lambda with up to 1.5GB storage
 
 ## Supported Collections
 
@@ -23,52 +32,37 @@ A FastAPI backend for downloading satellite imagery from Microsoft Planetary Com
 | MODIS | Surface Reflectance bands |
 | Copernicus DEM | Elevation |
 
-## API Endpoints
+## API
 
-### POST /download
+### `POST /download`
 
-Download a satellite tile in GeoTIFF or PNG format.
+Download satellite tiles with optional clipping and format conversion.
 
-**Request Body:**
 ```json
 {
   "collection": "sentinel-2-l2a",
-  "item_id": "S2A_MSIL2A_20240101T...",
-  "asset_key": "visual",
-  "bbox": [10.0, 55.0, 10.5, 55.5],
-  "format": "geotiff",
-  "rescale": "0,4000",
-  "colormap": "viridis",
-  "turnstile_token": "..."
+  "item_id": "S2A_MSIL2A_20240101T104441_R008_T32UNF",
+  "asset_key": "B04",
+  "format": "png",
+  "rescale": "0,3000",
+  "colormap": "viridis"
 }
 ```
 
-**Parameters:**
-- `collection`: STAC collection ID
-- `item_id`: STAC item ID
-- `asset_key`: Asset/band name
-- `bbox`: Optional bounding box [minLon, minLat, maxLon, maxLat]
-- `format`: `geotiff` or `png`
-- `rescale`: Optional rescale range for PNG (e.g., "0,4000")
-- `colormap`: Optional matplotlib colormap for single-band PNG
-- `turnstile_token`: Cloudflare Turnstile token (required for bot protection)
+### `GET /health`
 
-**Response:** Binary file stream with appropriate Content-Type header.
+Health check returning `{"status":"healthy","version":"0.1.0"}`.
 
-### GET /health
+### `GET /collections`
 
-Health check endpoint. Returns `{"status":"healthy","version":"0.1.0"}`.
+List all supported collections and available bands.
 
-### GET /collections
+## Protection
 
-Get list of all supported collections and their available assets.
-
-## Protection & Rate Limiting
-
-- **Cloudflare Turnstile**: Bot protection on all download requests
-- **Rate Limiting**: 1 request per minute per IP address
-- **Download Quotas**: 5000 MB per hour per IP address
-- **File Size Limit**: 1500 MB maximum per file
+- **Bot Protection**: Cloudflare Turnstile verification
+- **Rate Limiting**: 1 request/minute per IP
+- **Download Quotas**: 5 GB/hour per IP
+- **File Size Limit**: 1.5 GB max
 
 ## Local Development
 
@@ -95,69 +89,54 @@ pip install -e .
 python run_local.py
 ```
 
-## AWS Lambda Deployment
+## Deployment
 
-Deployed via Docker container image to AWS Lambda with Function URL.
+### AWS Lambda
 
-### Manual Deployment
-
-1. **Build Docker image:**
 ```bash
+# Build and tag
 docker build -t sat-data-viewer-backend .
+docker tag sat-data-viewer-backend:latest <account>.dkr.ecr.<region>.amazonaws.com/sat-data-viewer-backend:latest
+
+# Push to ECR
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
+docker push <account>.dkr.ecr.<region>.amazonaws.com/sat-data-viewer-backend:latest
+
+# Get platform-specific digest
+aws ecr batch-get-image --repository-name sat-data-viewer-backend --region <region> \
+  --image-ids imageTag=latest --accepted-media-types "application/vnd.oci.image.index.v1+json" \
+  --query 'images[0].imageManifest' --output text
 ```
 
-2. **Tag for ECR:**
-```bash
-docker tag sat-data-viewer-backend:latest <account-id>.dkr.ecr.<region>.amazonaws.com/sat-data-viewer-backend:latest
-```
+Use the `amd64` digest when updating Lambda (not the multi-platform manifest).
 
-3. **Push to ECR:**
-```bash
-aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
-docker push <account-id>.dkr.ecr.<region>.amazonaws.com/sat-data-viewer-backend:latest
-```
+**Lambda Config:**
+- Memory: 3008 MB
+- Timeout: 180s
+- Ephemeral storage: 1536 MB
+- Environment: `TURNSTILE_SECRET_KEY`
 
-4. **Get amd64 digest for Lambda:**
-```bash
-aws ecr batch-get-image --repository-name sat-data-viewer-backend --region <region> --image-ids imageTag=latest --accepted-media-types "application/vnd.oci.image.index.v1+json" --query 'images[0].imageManifest' --output text
-```
-
-5. **Update Lambda:** Use the amd64 digest (not the multi-platform manifest) from the output.
-
-### Lambda Configuration
-
-- **Memory**: 3008 MB
-- **Timeout**: 180 seconds (3 minutes)
-- **Ephemeral Storage**: 1536 MB
-- **Environment Variables**:
-  - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key
-  - `ALLOWED_ORIGINS`: CORS origins (optional)
-
-### Function URL CORS
-
-Configure CORS on the Lambda Function URL:
-- **Allow origin**: `https://kongstad.github.io`
-- **Allow methods**: GET, POST
-- **Allow headers**: `*`
+**Function URL CORS:**
+- Origin: `https://kongstad.github.io`
+- Methods: GET, POST
+- Headers: `*`
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ALLOWED_ORIGINS` | CORS allowed origins (comma-separated) | `*` |
-| `MAX_FILE_SIZE_MB` | Maximum file size in MB | `1500` |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key | `""` |
-| `MPC_STAC_URL` | Microsoft Planetary Computer STAC URL | `https://planetarycomputer.microsoft.com/api/stac/v1` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TURNSTILE_SECRET_KEY` | `""` | Cloudflare Turnstile secret |
+| `ALLOWED_ORIGINS` | `*` | CORS origins (comma-separated) |
+| `MAX_FILE_SIZE_MB` | `1500` | Max file size limit |
 
-## Architecture
+## Tech Stack
 
-- **FastAPI**: Web framework with async support
-- **Mangum**: ASGI adapter for AWS Lambda
-- **Rasterio**: Geospatial data processing
-- **Matplotlib**: Colormap support for PNG visualization
-- **HTTPX**: Async HTTP client for STAC API
-- **Microsoft Planetary Computer**: Free satellite data source
+- **FastAPI** - Web framework with async support
+- **Mangum** - ASGI adapter for Lambda
+- **Rasterio** - Geospatial data processing (GDAL)
+- **Matplotlib** - Colormap visualization
+- **HTTPX** - Async STAC API client
 
 ## License
 
-MIT
+MIT - See [LICENSE](LICENSE)
