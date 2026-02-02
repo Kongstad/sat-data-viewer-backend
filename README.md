@@ -14,12 +14,12 @@ uv run python run_local.py
 
 ## Features
 
-- 🛰️ Download satellite tiles as GeoTIFF or PNG
-- 🌍 Support for Sentinel-2, Landsat, HLS, MODIS, DEM
-- 🔒 Cloudflare Turnstile bot protection
-- ⏱️ Rate limiting (1 req/min per IP)
-- 📊 Download quotas (5 GB/hour)
-- ☁️ AWS Lambda with up to 1.5GB storage
+- Download satellite tiles as GeoTIFF or PNG
+- Support for Sentinel-2, Landsat, HLS, MODIS, DEM
+- Cloudflare Turnstile bot protection
+- Rate limiting (1 req/min per IP)
+- Download quotas (5 GB/hour)
+- AWS Lambda with up to 1.5GB storage
 
 ## Supported Collections
 

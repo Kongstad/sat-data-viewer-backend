@@ -36,7 +36,7 @@ uv run python run_local.py
 
 Run tests before submitting:
 ```bash
-pytest
+uv run pytest tests/ -v
 ```
 
 ## Questions?
