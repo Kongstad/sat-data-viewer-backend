@@ -1,0 +1,28 @@
+[project]
+name = "sat-data-viewer-backend"
+version = "0.1.0"
+description = "Backend API for downloading satellite imagery from Microsoft Planetary Computer"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "mangum>=0.19.0",
+    "rasterio>=1.4.0",
+    "numpy>=1.26.0",
+    "Pillow>=10.4.0",
+    "httpx>=0.28.0",
+    "pystac-client>=0.8.0",
+    "planetary-computer>=1.0.0",
+    "boto3>=1.35.0",
+    "python-multipart>=0.0.17",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "matplotlib>=3.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]

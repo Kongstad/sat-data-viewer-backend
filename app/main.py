@@ -1,0 +1,76 @@
+"""
+Satellite Data Viewer Backend
+FastAPI application for downloading satellite imagery from Microsoft Planetary Computer.
+"""
+
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
+
+from app.routes import router
+from app.config import settings
+from app.middleware import MonitoringMiddleware, tracker
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup
+    print(f"Starting Satellite Data Viewer Backend")
+    print(f"Max file size: {settings.max_file_size_mb} MB")
+    yield
+    # Shutdown
+    print("Shutting down...")
+
+
+app = FastAPI(
+    title="Satellite Data Viewer Backend",
+    description="Download satellite imagery from Microsoft Planetary Computer",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS configuration
+origins = settings.allowed_origins.split(",") if settings.allowed_origins != "*" else ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Monitoring and rate limiting
+app.add_middleware(MonitoringMiddleware)
+
+# Include routes
+app.include_router(router)
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "version": "0.1.0"}
+
+
+@app.get("/stats")
+async def usage_stats(request: Request):
+    """Get usage statistics for the current client."""
+    client_ip = request.client.host if request.client else "unknown"
+    stats = tracker.get_stats(client_ip)
+    return {
+        "ip": client_ip,
+        "usage": stats,
+        "limits": {
+            "requests_per_minute": 10,
+            "mb_per_hour": 5000
+        }
+    }
+
+
+# AWS Lambda handler
+handler = Mangum(app, lifespan="on")

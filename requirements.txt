@@ -1,0 +1,22 @@
+# Core dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+mangum>=0.19.0  # AWS Lambda adapter for ASGI
+
+# Geospatial
+rasterio>=1.4.0
+numpy>=1.26.0
+Pillow>=10.4.0
+
+# HTTP client for STAC API
+httpx>=0.28.0
+pystac-client>=0.8.0
+planetary-computer>=1.0.0
+
+# AWS (optional, for S3 if needed)
+boto3>=1.35.0
+
+# Utilities
+python-multipart>=0.0.17
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
