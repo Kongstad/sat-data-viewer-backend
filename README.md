@@ -65,6 +65,7 @@ List all supported collections and available bands.
 - **Download Quotas**: 5 GB/hour per IP
 - **File Size Limit**: 1.5 GB max
 - **Auto-Cleanup**: Files deleted after 10 minutes (S3 lifecycle backup at 1 day)
+- **CORS**: Restricted to authorized frontend domains only
 
 ## Local Development
 
