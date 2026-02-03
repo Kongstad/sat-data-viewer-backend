@@ -3,15 +3,8 @@ Pydantic models for API requests and responses.
 """
 
 from typing import Optional, List
-from enum import Enum
 
 from pydantic import BaseModel, Field
-
-
-class OutputFormat(str, Enum):
-    """Supported output formats."""
-    GEOTIFF = "geotiff"
-    PNG = "png"
 
 
 class DownloadRequest(BaseModel):
@@ -37,33 +30,10 @@ class DownloadRequest(BaseModel):
         description="Bounding box [minLon, minLat, maxLon, maxLat] for clipping",
         examples=[[10.0, 55.0, 10.5, 55.5]]
     )
-    format: OutputFormat = Field(
-        OutputFormat.GEOTIFF,
-        description="Output format (geotiff or png)"
-    )
-    rescale: Optional[str] = Field(
-        None,
-        description="Rescale range for PNG visualization (e.g., '0,4000')",
-        examples=["0,4000", "-2000,10000"]
-    )
-    colormap: Optional[str] = Field(
-        None,
-        description="Colormap name for PNG visualization (e.g., 'viridis', 'inferno')",
-        examples=["viridis", "inferno", "rdylgn"]
-    )
     turnstile_token: Optional[str] = Field(
         None,
         description="Cloudflare Turnstile token for bot protection"
     )
-
-
-class DownloadResponse(BaseModel):
-    """Response model with download information."""
-    
-    filename: str
-    content_type: str
-    file_size_bytes: int
-    file_size_mb: float
 
 
 class ErrorResponse(BaseModel):
