@@ -3,9 +3,10 @@ API routes for the satellite data download service.
 """
 
 import os
+import uuid
 from typing import Generator
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 
 from app.models import (
     DownloadRequest,
@@ -20,6 +21,7 @@ from app.collections import get_all_collections, COLLECTION_ASSETS, is_collectio
 from app.utils import get_content_type, generate_filename, format_file_size
 from app.middleware import tracker
 from app.turnstile import verify_turnstile_token
+from app.s3_utils import upload_to_s3
 
 
 router = APIRouter()
@@ -194,31 +196,39 @@ async def download(request: DownloadRequest, http_request: Request):
                 cleanup_file(output_png)
                 return None
             
-            logger.info(f"[RESPONSE] Streaming PNG to client: {filename}")
-            # Stream PNG with cleanup
-            return StreamingResponse(
-                file_iterator(output_png, cleanup=True),
-                media_type="image/png",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                    "Content-Length": str(png_size),
-                }
-            )
+            logger.info(f"[RESPONSE] Uploading PNG to S3: {filename}")
+            # Upload to S3 and get presigned URL
+            s3_key = f"downloads/{uuid.uuid4()}/{filename}"
+            presigned_url = upload_to_s3(output_png, s3_key)
+            
+            # Clean up local file
+            cleanup_file(output_png)
+            
+            return JSONResponse({
+                "download_url": presigned_url,
+                "filename": filename,
+                "size_bytes": png_size,
+                "expires_in_seconds": 600
+            })
         else:
             # Track download size
             tracker.record_download(client_ip, tif_size)
             logger.info(f"[TRACKING] Recorded {tif_size / (1024*1024):.2f} MB download for {client_ip}")
             
-            # Stream GeoTIFF with cleanup
-            logger.info(f"[RESPONSE] Streaming GeoTIFF to client: {filename}")
-            return StreamingResponse(
-                file_iterator(output_tif, cleanup=True),
-                media_type="image/tiff",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                    "Content-Length": str(tif_size),
-                }
-            )
+            # Upload GeoTIFF to S3 and get presigned URL
+            logger.info(f"[RESPONSE] Uploading GeoTIFF to S3: {filename}")
+            s3_key = f"downloads/{uuid.uuid4()}/{filename}"
+            presigned_url = upload_to_s3(output_tif, s3_key)
+            
+            # Clean up local file
+            cleanup_file(output_tif)
+            
+            return JSONResponse({
+                "download_url": presigned_url,
+                "filename": filename,
+                "size_bytes": tif_size,
+                "expires_in_seconds": 600
+            })
             
     except DownloadError as e:
         # Clean up any partial files

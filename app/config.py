@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     # Turnstile (Cloudflare CAPTCHA)
     turnstile_secret_key: str = ""
     
+    # S3 bucket for file downloads
+    s3_bucket_name: str = "sat-data-viewer-downloads"
+    s3_region: str = "eu-north-1"
+    presigned_url_expiry: int = 600  # 10 minutes
+    
     # File limits
     max_file_size_mb: int = 1500  # 1.5 GB max
     
