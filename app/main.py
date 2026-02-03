@@ -33,16 +33,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS configuration
-origins = settings.allowed_origins.split(",") if settings.allowed_origins != "*" else ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS is handled by AWS Lambda Function URL configuration
+# Do NOT add CORSMiddleware here to avoid duplicate headers
 
 # Monitoring and rate limiting
 app.add_middleware(MonitoringMiddleware)
