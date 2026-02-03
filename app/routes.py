@@ -3,8 +3,9 @@ API routes for the satellite data download service.
 """
 
 import os
+from typing import Generator
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 
 from app.models import (
     DownloadRequest,
@@ -22,6 +23,26 @@ from app.turnstile import verify_turnstile_token
 
 
 router = APIRouter()
+
+# Chunk size for streaming (64KB)
+CHUNK_SIZE = 64 * 1024
+
+
+def file_iterator(file_path: str, cleanup: bool = True) -> Generator[bytes, None, None]:
+    """
+    Generator that streams file contents in chunks.
+    Optionally cleans up the file after streaming.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            while chunk := f.read(CHUNK_SIZE):
+                yield chunk
+    finally:
+        if cleanup and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass  # Best effort cleanup
 
 
 @router.get(
@@ -173,26 +194,30 @@ async def download(request: DownloadRequest, http_request: Request):
                 cleanup_file(output_png)
                 return None
             
-            logger.info(f"[RESPONSE] Sending PNG to client: {filename}")
-            # Return PNG
-            return FileResponse(
-                path=output_png,
-                filename=filename,
+            logger.info(f"[RESPONSE] Streaming PNG to client: {filename}")
+            # Stream PNG with cleanup
+            return StreamingResponse(
+                file_iterator(output_png, cleanup=True),
                 media_type="image/png",
-                background=None,  # Don't run background tasks
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Content-Length": str(png_size),
+                }
             )
         else:
             # Track download size
             tracker.record_download(client_ip, tif_size)
             logger.info(f"[TRACKING] Recorded {tif_size / (1024*1024):.2f} MB download for {client_ip}")
             
-            # Return GeoTIFF
-            logger.info(f"[RESPONSE] Sending GeoTIFF to client: {filename}")
-            return FileResponse(
-                path=output_tif,
-                filename=filename,
+            # Stream GeoTIFF with cleanup
+            logger.info(f"[RESPONSE] Streaming GeoTIFF to client: {filename}")
+            return StreamingResponse(
+                file_iterator(output_tif, cleanup=True),
                 media_type="image/tiff",
-                background=None,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Content-Length": str(tif_size),
+                }
             )
             
     except DownloadError as e:

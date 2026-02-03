@@ -72,5 +72,5 @@ async def usage_stats(request: Request):
     }
 
 
-# AWS Lambda handler
+# AWS Lambda handler with response streaming support
 handler = Mangum(app, lifespan="on")
