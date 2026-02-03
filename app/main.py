@@ -65,4 +65,19 @@ async def usage_stats(request: Request):
 
 
 # AWS Lambda handler with response streaming support
-handler = Mangum(app, lifespan="on")
+def handler(event, context):
+    """
+    Lambda handler that routes between HTTP requests and scheduled deletions.
+    """
+    # Check if this is a scheduled deletion event
+    if isinstance(event, dict) and event.get('action') == 'delete_s3_object':
+        from app.s3_utils import delete_from_s3
+        bucket = event.get('bucket')
+        key = event.get('key')
+        if bucket and key:
+            print(f"Scheduled deletion: {bucket}/{key}")
+            delete_from_s3(key)
+            return {'statusCode': 200, 'body': 'Deleted'}
+    
+    # Otherwise, handle as HTTP request
+    return Mangum(app, lifespan="on")(event, context)

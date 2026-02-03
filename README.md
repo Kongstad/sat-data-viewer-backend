@@ -2,6 +2,8 @@
 
 FastAPI service for downloading satellite imagery from Microsoft Planetary Computer. Deployed serverless on AWS Lambda with Docker.
 
+> **Note:** Download functionality operates in controlled mode - the backend is enabled during demonstrations to manage AWS costs. Files are automatically deleted from S3 after 10 minutes for security and cost optimization.
+
 ## Quick Start
 
 ```bash
@@ -14,12 +16,13 @@ uv run python run_local.py
 
 ## Features
 
-- Download satellite tiles as GeoTIFF or PNG
+- Download satellite tiles as GeoTIFF
 - Support for Sentinel-2, Landsat, HLS, MODIS, DEM
 - Cloudflare Turnstile bot protection
-- Rate limiting (1 req/min per IP)
+- Rate limiting (10 req/min per IP)
 - Download quotas (5 GB/hour)
 - AWS Lambda with up to 1.5GB storage
+- Auto-deletion of files (10 min via EventBridge, 1 day S3 lifecycle backup)
 
 ## Supported Collections
 
@@ -36,16 +39,14 @@ uv run python run_local.py
 
 ### `POST /download`
 
-Download satellite tiles with optional clipping and format conversion.
+Download satellite tiles as GeoTIFF.
 
 ```json
 {
   "collection": "sentinel-2-l2a",
   "item_id": "S2A_MSIL2A_20240101T104441_R008_T32UNF",
   "asset_key": "B04",
-  "format": "png",
-  "rescale": "0,3000",
-  "colormap": "viridis"
+  "turnstile_token": "<cloudflare_turnstile_token>"
 }
 ```
 
@@ -60,9 +61,10 @@ List all supported collections and available bands.
 ## Protection
 
 - **Bot Protection**: Cloudflare Turnstile verification
-- **Rate Limiting**: 1 request/minute per IP
+- **Rate Limiting**: 10 requests/minute per IP
 - **Download Quotas**: 5 GB/hour per IP
 - **File Size Limit**: 1.5 GB max
+- **Auto-Cleanup**: Files deleted after 10 minutes (S3 lifecycle backup at 1 day)
 
 ## Local Development
 
@@ -134,7 +136,7 @@ Use the `amd64` digest when updating Lambda (not the multi-platform manifest).
 - **FastAPI** - Web framework with async support
 - **Mangum** - ASGI adapter for Lambda
 - **Rasterio** - Geospatial data processing (GDAL)
-- **Matplotlib** - Colormap visualization
+- **Boto3** - AWS S3 uploads and EventBridge scheduling
 - **HTTPX** - Async STAC API client
 
 ## License

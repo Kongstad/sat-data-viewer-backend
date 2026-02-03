@@ -84,7 +84,7 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
         
         # Rate limiting for download endpoints
         if request.url.path.startswith("/download"):
-            if not tracker.check_rate_limit(client_ip, max_requests=1, window_minutes=1):
+            if not tracker.check_rate_limit(client_ip, max_requests=10, window_minutes=1):
                 logger.warning(f"[RATE_LIMIT] IP {client_ip} exceeded rate limit")
                 raise HTTPException(
                     status_code=429,
